@@ -21,7 +21,7 @@ for i = 1:48
             nextP = eval(strcat(filename,'(used+1,1)'));
         end
         c = eval(strcat(filename,'(used,1)'));
-        Ctime(i) = sum(nextP-c(1:length(nextP))); % total use of caudal fin in seconds
+        Ctime(i) = sum(nextP-prevP(1:length(nextP))); % total use of caudal fin in seconds
         PerCtime(i) = 100*(Ctime(i)/(eval(strcat(filename,'(end,1)')) - eval(strcat(filename,'(1,1)'))));
     end
 end
@@ -33,6 +33,11 @@ flow = [0 0 0 1 1 1 0 0 0 1 1 1 0 0 0 1 1 1 1 1 1 0 0 0 1 1 1 0 0 0 0 0 0 1 1 1 
 % fish ID
 fish = [repmat(10,1,6),repmat(11,1,6),repmat(13,1,6),repmat(15,1,6),...
     repmat(19,1,6),repmat(5,1,6),repmat(6,1,6),repmat(9,1,6),]';
+
+% stats
+[p,t,stats] = anovan(PerCtime,{flow fish speed},'sstype',2,'varnames',{'Flow';'Fish';'Speed'});
+[c,m,h,names] = multcompare(stats,'dim',1);
+
 
 %% plot in some different ways to separate lam/turb/speeds
 figure(5); clf; hold on
@@ -53,11 +58,11 @@ adjustfigurefont
 
 
 figure(6); clf; hold on % change all of these to have error bars
-plot(0,mean(PerCtime(f0(f0s1))),'bo')
-plot(1,mean(PerCtime(f1(f1s1))),'ro')
-plot(0,mean(PerCtime(f0(f0s2))),'bo')
-plot(1,mean(PerCtime(f1(f1s2))),'ro')
-plot(0,mean(PerCtime(f0(f0s3))),'bo')
-plot(1,mean(PerCtime(f1(f1s3))),'ro')
+errorbar(0,mean(PerCtime(f0(f0s1))),std(PerCtime(f0(f0s1))),'bo')
+errorbar(1,mean(PerCtime(f1(f1s1))),std(PerCtime(f1(f1s1))),'ro')
+errorbar(0,mean(PerCtime(f0(f0s2))),std(PerCtime(f0(f0s2))),'bo')
+errorbar(1,mean(PerCtime(f1(f1s2))),std(PerCtime(f1(f1s2))),'ro')
+errorbar(0,mean(PerCtime(f0(f0s3))),std(PerCtime(f0(f0s3))),'bo')
+errorbar(1,mean(PerCtime(f1(f1s3))),std(PerCtime(f1(f1s3))),'ro')
 xlabel('Flow Condition'); xlim([-0.5 1.5]); set(gca,'xtick',[0 1],'xticklabel',{'Low','High'})
 ylabel('Caudal Fin Use (% Time)')
