@@ -27,14 +27,3 @@ legend('High Turbulence','Low Turbulence','Location','NW')
 xlabel('Pectoral Fin Beat Frequency (Hz)'); ylabel('logVO_2 (mg O_2 kg^-^1 h^-^1)')
 adjustfigurefont; box on
 
-%%
-
-[lamfit,lamgof,lamoutput] = fit(Hz(flow == 1),VO2(flow == 1),'exp1');
-[turbfit,turbgof,turboutput] = fit(Hz(flow == 0),VO2(flow == 0),'exp1');
-figure(1); clf; hold on
-plot(lamfit); 
-h = plot(turbfit); set(h,'color','b')
-h = gscatter(Hz,VO2,flow,'br','o^');
-
-
-%%
