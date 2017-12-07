@@ -43,17 +43,20 @@ plot(fish$VO2minBac, predict(mod2))
 # - starting values are from previous magic
 modr <- nlme(VO2minBac~a+b*Speed^c,
              fixed = a+b+c~Flow,
-             random = a+b+c~1|Fish,
+             random = a~1|Fish,
              start=c(168.7038472,0, 6,0, 2.2036793, 0),
-#correlation=corCAR1(form=~Speed|Fish),
-# ^^^ maybe want to think about this later?
              data=fish)
+
+
 
 # does this seem right?
 summary(modr)
+summary(modr_cor)
 
 # plot observed vs predicted
+par(mfrow=c(1,2))
 plot(fish$VO2minBac, predict(modr),
+     main="modr - observed vs predicted",
      asp=1,
      xlab="Observed VO2minBac", ylab="Predicted VO2minBac")
 abline(a=0,b=1, col="blue", lty=2)
@@ -61,12 +64,10 @@ abline(a=0,b=1, col="blue", lty=2)
 # (a bit cleaner)
 plot(aggregate(fish$VO2minBac, list(fish$Speed, fish$Flow, fish$Fish), mean)$x,
      aggregate(predict(modr), list(fish$Speed, fish$Flow, fish$Fish), mean)$x,
+     main="modr - aggregated observed vs predicted",
      asp=1,
      xlab="Observed VO2minBac", ylab="Predicted VO2minBac")
 abline(a=0,b=1, col="blue", lty=2)
-
-
-
 
 
 ## 3. model checking...
@@ -74,26 +75,29 @@ abline(a=0,b=1, col="blue", lty=2)
 # per fish residuals
 # - this looks okay, no major variations
 bp_dat <- data.frame(resids = residuals(modr),
-                     Fish   = fish2$Fish)
-boxplot(resids~Fish, bp_dat)
+                     Fish   = fish$Fish)
+boxplot(resids~Fish, bp_dat, varwidth=TRUE, ylim=c(-100, 200))
 
 # residuals by Speed
 # - these look okay too, maybe some increase in variance at higher speeds?
 dat <- data.frame(residuals = residuals(modr),
 #                  Speed     = cut(fish$Speed, seq(0.25,4.75,0.5)))
                   Speed     = cut(fish$Speed, c(seq(0.25,3.75,0.5), 4.75)))
-boxplot(residuals~Speed, dat, varwidth=TRUE)
+boxplot(residuals~Speed, dat, varwidth=TRUE, ylim=c(-100, 200))
 
 # predictions vs. residuals
 # - hmm, looks like we do a bad job for very large O2 values?
 plot(modr)
+
+plot(modr, resid(.) ~ Speed)
+
 
 # what aout a q-q plot of the residuals
 # - not perfect: looks like we aren't doing such a good job in the tails?
 qqnorm(modr, abline=c(0,1))
 
 # q-q of the random effects (we think they should be normal)
-qqnorm(modr, ~ranef(.))
+qqnorm(modr, ~ranef(., type="p"), abline=c(0,1))
 
 
 
@@ -112,10 +116,11 @@ plotty <- cbind(preddat, VO2minBac=plotty)
 
 p <- ggplot(plotty, aes(x=Speed, y=VO2minBac, group=Flow, colour=Flow)) +
   geom_line(size=0.75, linetype=2) +
-  geom_point(data=fish) +
+  geom_point(data=fish, size=1.5, aes(shape=Flow)) +
   facet_wrap(~Fish, nrow=2) +
   theme_minimal() +
-  scale_colour_brewer(type="qual")
+  scale_colour_manual(values=c("red", "blue")) +
+  scale_shape_manual(values=c(17, 16))
 print(p)
 
 
@@ -129,9 +134,10 @@ plotty <- cbind(preddat, VO2minBac=plotty)
 
 p <- ggplot(plotty, aes(x=Speed, y=VO2minBac, group=Flow, colour=Flow)) +
   geom_line(size=0.75, linetype=2) +
-  geom_point(data=fish) +
+  geom_point(data=fish, size=1.5, aes(shape=Flow)) +
   theme_minimal() +
-  scale_colour_brewer(type="qual")
+  scale_colour_manual(values=c("red", "blue")) +
+  scale_shape_manual(values=c(17, 16))
 print(p)
 
 
