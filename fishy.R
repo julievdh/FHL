@@ -51,7 +51,6 @@ modr <- nlme(VO2minBac~a+b*Speed^c,
 
 # does this seem right?
 summary(modr)
-summary(modr_cor)
 
 # plot observed vs predicted
 par(mfrow=c(1,2))
