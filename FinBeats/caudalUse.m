@@ -35,7 +35,11 @@ fish = [repmat(10,1,6),repmat(11,1,6),repmat(13,1,6),repmat(15,1,6),...
     repmat(19,1,6),repmat(5,1,6),repmat(6,1,6),repmat(9,1,6),]';
 
 % stats
+<<<<<<< HEAD
 [p,t,stats] = anovan(PerCtime,{flow fish speed},'model','interaction','sstype',2,'varnames',{'Flow';'Fish';'Speed'});
+=======
+[p,t,stats] = anovan(PerCtime,{flow fish speed},'sstype',2,'varnames',{'Flow';'Fish';'Speed'});
+>>>>>>> 51967eeb3fcdcbc8174dd6ebc4a1133a24974fa2
 [c,m,h,names] = multcompare(stats,'dim',1);
 
 
