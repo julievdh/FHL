@@ -62,7 +62,7 @@ set(gcf,'PaperPositionMode','auto')
 set(gca,'FontSize',12,'XTick',[1:8])
 set(gca,'XTickLabel',['0.5';'1.0';'1.5';'2.0';'2.5';'3.0';'3.5';'4.0'])
 xlabel('Speed (BL s^-^1)','FontSize',12)
-ylabel('Percent Increase in VO_2','FontSize',12)
+ylabel('Percent Increase in MO_2','FontSize',12)
 ylim([0 35])
 
 cd /Users/julievanderhoop/Documents/MATLAB/FHL
@@ -75,7 +75,7 @@ plot(F11_L(:,1),F11_L(:,2),'ro','MarkerFaceColor','r')
 hold on
 plot(F11_T(:,1),F11_T(:,2),'bo','MarkerFaceColor','b')
 xlabel('Speed (BL s^-^1)','FontSize',12)
-ylabel('Oxygen Consumption Rate (VO_2; mg O_2 kg^-^1 h^-^1)','FontSize',12)
+ylabel('Oxygen Consumption Rate (MO_2; mg O_2 kg^-^1 h^-^1)','FontSize',12)
 speed = [0.5:0.1:4.3];
 yfitL = 149.33*exp(0.2632*speed);
 yfitT = 148.77*exp(0.1591*speed);
