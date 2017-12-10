@@ -1,0 +1,408 @@
+---
+title: "AppendixSIV"
+author: "Julie van der Hoop"
+date: "12/8/2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This R Markdown document details the statistical approach for the paper van der Hoop et al. 201X "Turbulent flow reduces oxygen consumption in the labriform swimming shiner perch, Cymatogaster aggregata"
+
+The data represent mean oxygen consumption rates (MO2; mg O_2/kg/h) from three measurements at each speed (repetition number) of increments from 0.5 Body Lengths (BL) per second [BL/s] up to a maximum swimming speed, for different Fish that swam each in High ("T") and Low ("L") turbulence flow conditions in a respirometer. Bacterial MO2 (mg O_2/h) for each trial are subtracted from the measured MO2.
+
+```{r}
+## 1. Data handling
+
+# load data
+library(readxl)
+fish <- read_xlsx("FHL_FishVO2_allreps.xlsx")
+
+# make the things that need to be factors factors
+fish$Fish <- as.factor(fish$Fish)
+fish$Flow <- as.factor(fish$Flow)
+fish$Rep <- as.factor(fish$Rep)
+
+## 2. Model Fitting
+library(nlme)
+
+# We want to fit something of the form
+#  O2 ~ a + b*Speed^c
+# estimate a,b,c and have a random effect for fish
+# each a,b,c has two levels, one for each treatment (Low-Turbulence and High-Turbulence)
+
+# NOTES:
+# - formula is NOT a standard R formula
+# - fixed specifies the form for the fixed effects (the a,b,c parameters)
+# - random says what the random effects are (random intercept for a)
+modr <- nlme(VO2minBac~a+b*Speed^c,
+             fixed = a+b+c~Flow,
+             random = a+b+c~1|Fish,
+             start=c(168.7038472,0, 6,0, 2.2036793, 0),
+             data=fish)
+
+# Check model summary
+summary(modr)
+
+# plot observed vs predicted
+plot(fish$VO2minBac, predict(modr),
+     asp=1,
+     xlab="Observed VO2minBac", ylab="Predicted VO2minBac")
+abline(a=0,b=1, col="blue", lty=2)
+# same but average over repetitions
+# (a bit cleaner)
+plot(aggregate(fish$VO2minBac, list(fish$Speed, fish$Flow, fish$Fish), mean)$x,
+     aggregate(predict(modr), list(fish$Speed, fish$Flow, fish$Fish), mean)$x,
+     main="modr - aggregated observed vs predicted",
+     asp=1,
+     xlab="Observed VO2minBac", ylab="Predicted VO2minBac")
+abline(a=0,b=1, col="blue", lty=2)
+
+## 3. Model checking
+
+# per fish residuals - this looks okay, no major variations
+bp_dat <- data.frame(resids = residuals(modr),
+                     Fish   = fish$Fish)
+boxplot(resids~Fish, bp_dat, varwidth=TRUE, ylim=c(-100, 200))
+
+# residuals by Speed
+# - these look okay too, maybe some increase in variance at higher speeds
+dat <- data.frame(residuals = residuals(modr),
+#                  Speed     = cut(fish$Speed, seq(0.25,4.75,0.5)))
+                  Speed     = cut(fish$Speed, c(seq(0.25,3.75,0.5), 4.75)))
+boxplot(residuals~Speed, dat, varwidth=TRUE, ylim=c(-100, 200))
+# predictions vs. residuals
+plot(modr)
+
+plot(modr, resid(.) ~ Speed)
+
+# what aout a q-q plot of the residuals
+# - not perfect: looks like we aren't doing such a good job in the tails?
+qqnorm(modr, abline=c(0,1))
+
+# q-q of the random effects - they should be normal
+qqnorm(modr, ~ranef(.))
+
+
+## 4. prediction plots
+library(ggplot2)
+
+# plot predictions per Fish
+# make prediction grid, then predict
+preddat <- expand.grid(Speed = seq(0.5, 4.5, by=0.1),
+                       Flow  = c("L", "T"), # L = LTF, T = HTF 
+                       Fish  = unique(fish$Fish))
+plotty <- predict(modr, preddat, level=1)
+plotty <- cbind(preddat, VO2minBac=plotty)
+
+p <- ggplot(plotty, aes(x=Speed, y=VO2minBac, group=Flow, colour=Flow)) +
+  geom_line(size=0.75, linetype=2) +
+  geom_point(data=fish) +
+  facet_wrap(~Fish, nrow=2) +
+  theme_minimal() +
+  # scale_colour_brewer(type="qual")
+  scale_color_manual(values=c('red', 'blue')) +
+  scale_shape_manual(values=c(17, 16))+
+  labs(x="Speed (BL/s)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition")
+print(p)
+
+
+
+# plot predictions averaged over Fish
+# make prediction grid, then predict
+preddat <- expand.grid(Speed = seq(0.5, 4.5, by=0.1),
+                       Flow  =  c("L", "T"))
+plotty <- predict(modr, preddat, level=0)
+plotty <- cbind(preddat, VO2minBac=plotty)
+
+p <- ggplot(plotty, aes(x=Speed, y=VO2minBac, group=Flow, colour=Flow)) +
+  geom_line(size=0.75, linetype=2) +
+  geom_point(data=fish, size=1.5, aes(shape=Flow)) +
+  theme_minimal() +
+  scale_colour_manual(values=c("red", "blue")) +
+  scale_shape_manual(values=c(17, 16))+
+  labs(x="Speed (BL/s)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition")
+print(p)
+
+## also supplemental figure of true speed
+file <- system.file("VO2", "VO2.xlsx", package = "xlsx")
+data <- read_excel("VO2.xlsx", 7)  # includes body lengths of fish
+
+data$Cond <- as.factor(data$Cond)
+
+p <- ggplot(data, aes(x=Truespeed, y=MeanVO2minBac, group=Cond, colour=Cond)) +
+  # geom_line(size=0.75, linetype=2) +
+  geom_point(data=data, size=1.5, aes(shape=Cond)) +
+  theme_minimal() +
+  scale_colour_manual(values=c("red", "blue")) +
+  scale_shape_manual(values=c(17, 16))+
+  labs(x="Speed (m/s)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition")
+
+png("FigureS5.png", width = 6, height = 4, units = 'in', res = 300)
+print(p) # Make plot
+dev.off()
+
+
+```
+To assess how MO2 changed with fin beat frequency, we fitted a generalized additive model (Wood, 2017) to the MO2, using pectoral or caudal fin beat (Hz) as separate explanatory variables. We used factor-smooth interactions (Baayen et al., 2016) to fit two levels of a smoothed function of measured beat frequency, one for each flow condition. Such terms fit the base level of the factor as a smooth, then model deviations from that smooth for the other level, thus information is shared between the models while allowing for a flexible relationship that makes no assumptions about functional form. Fish ID was included as a random effect. Models were fitted by restricted maximum likelihood. 
+
+
+```{r}
+hz <- read.csv("FishVO2Hz.csv")
+
+# make codes for the speeds
+hz$speedcode <- "H"
+hz$speedcode[hz$speed == 0.5] <- "L"
+hz$speedcode[hz$speed == 1.5] <- "M"
+# speeds set at 0.5, 1.5 and then the max speed achieved for both LTF and HTF 
+
+library(ggplot2)
+
+# quick visualisation
+p <- ggplot(hz) +
+  #geom_point(aes(x=speed, y=VO2minBac, colour=cond)) +
+  geom_point(aes(x=PecHz, y=VO2minBac, colour=cond)) +
+  theme_minimal() +
+  scale_shape_manual(values=c(16, 17)) +
+  scale_color_manual(values=c('red', 'blue')) +
+  labs(x="Pectoral Fin Beat Frequency (Hz)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition")+
+  facet_wrap(~Fish)
+print(p)
+
+
+# Fit a GAM
+library(mgcv)
+# this is fitting a model that says:
+# O2 varies as a function of pectoral hz, but we should estimate a different
+# curve for each condition. We also think that fish acts like a random effect
+b_pec <- gam(VO2minBac~s(PecHz, cond, bs="fs") + s(Fish, bs="re"),
+             data=hz, method="REML")
+
+# check this model
+gam.check(b_pec)
+# Little heteroskedasticity (top right). Looks like the model predicts well (bottom
+# right). Residuals look normal enough (left side). Text output shows that we have
+# allowed for sufficient flexibility in our model.
+summary(b_pec)
+# v. high % deviance explained, will continue to include the fish random effect 
+# to explicitly include between-fish variability
+
+
+# now to make predictions, make a grid of values with all the pectoral hz we need
+# plus values for the condition and fish
+preddat <- expand.grid(PecHz = seq(0.5, 3.5, by=0.1),
+                       cond  = c("T", "L"),
+                       Fish  = unique(hz$Fish))
+
+# make predictions, also predict the standard error
+pr <- predict(b_pec, preddat, type="response", se=TRUE)
+preddat$VO2minBac <- pr$fit
+# generate the CIs
+preddat$upper <- pr$fit + 2*pr$se.fit
+preddat$lower <- pr$fit - 2*pr$se.fit
+
+
+# what does that look like?
+p <- ggplot(hz) +
+  geom_line(aes(x=PecHz, y=VO2minBac, colour=cond, group=cond), data=preddat) +
+  geom_line(aes(x=PecHz, y=upper, colour=cond, group=cond), linetype=2, data=preddat) +
+  geom_line(aes(x=PecHz, y=lower, colour=cond, group=cond), linetype=2, data=preddat) +
+  geom_text(aes(x=PecHz, y=VO2minBac, colour=cond, label=speedcode)) +
+  # scale_colour_brewer(type="qual") +
+  theme_minimal() +
+  scale_color_manual(values=c('blue', 'red')) +
+  labs(x="Pectoral Fin Beat Frequency (Hz)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition")+
+  facet_wrap(~Fish, nrow=2)
+
+print(p)
+
+# ignore fish and predict integrating out the fish random effect
+preddat <- expand.grid(PecHz = seq(0.5, 3.5, by=0.1),
+                       cond  = c("T", "L"), Fish="F5")
+pr <- predict(b_pec, preddat, type="response", se=TRUE, exclude="s(Fish)")
+preddat$VO2minBac <- pr$fit
+preddat$upper <- pr$fit + 2*pr$se.fit
+preddat$lower <- pr$fit - 2*pr$se.fit
+
+# what does that look like?
+p <- ggplot(hz) +
+  geom_line(aes(x=PecHz, y=VO2minBac, colour=cond, group=cond), data=preddat) +
+  geom_line(aes(x=PecHz, y=upper, colour=cond, group=cond), linetype=2, data=preddat) +
+  geom_line(aes(x=PecHz, y=lower, colour=cond, group=cond), linetype=2, data=preddat) +
+  geom_text(aes(x=PecHz, y=VO2minBac, colour=cond, label=speedcode)) +
+  # scale_colour_brewer(type="qual") +
+  # scale_shape_manual(values=c(16, 17))+
+  scale_color_manual(values=c('blue', 'red'))+
+  theme_minimal() +
+  labs(x="Pectoral Fin Beat Frequency (Hz)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition")
+
+print(p)
+
+```
+We were interested in testing the relationship between oxygen consumption and caudal fin use or frequency; however, the caudal fin was rarely used and was 0 in 65% of the experimental conditions. Model formulation and figures of the raw data are included below to illustrate the limitations of the data and the observed caudal fin use patterns. 
+
+```{r}
+
+# quick visualisation
+p <- ggplot(hz) +
+  geom_point(aes(x=CaudHz, y=VO2minBac, colour=cond)) +
+  theme_minimal() +
+  scale_shape_manual(values=c(16, 17)) +
+  scale_color_manual(values=c('red', 'blue')) +
+  labs(x="Caudal Fin Beat Frequency (Hz)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition") +
+  facet_wrap(~Fish)
+
+print(p)
+
+# try the same kind of model as above for the caudal fin frequency
+# need to reduce k (smooth complexity) as we don't have many unique values
+b_caud <- gam(VO2minBac~s(CaudHz, cond, bs="fs", k=5) + s(Fish, bs="re"),
+              data=hz, method="REML")
+
+# model check
+summary(b_caud)
+# less deviance explained than before 
+plot(b_caud)
+# do we believe that O2 is n-shaped in caudal hz? Unlikely
+
+
+preddat <- expand.grid(CaudHz = seq(0, 5, by=0.1),
+                       cond  = c("T", "L"),
+                       Fish  = unique(hz$Fish))
+
+preddat$VO2minBac <- predict(b_caud, preddat, type="response")
+
+
+p <- ggplot(hz) +
+  geom_line(aes(x=CaudHz, y=VO2minBac, colour=cond, group=cond), data=preddat) +
+  geom_text(aes(x=CaudHz, y=VO2minBac, colour=cond, label=speedcode)) +
+  # scale_colour_brewer(type="qual") +
+  theme_minimal() +
+  labs(x="Caudal Hz", colour="Condition") +
+  scale_shape_manual(values=c(16, 17)) +
+  scale_color_manual(values=c('red', 'blue')) +
+  labs(x="Caudal Fin Beat Frequency (Hz)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition") +
+  facet_wrap(~Fish, nrow=2)
+
+print(p)
+
+## what about caudal use? Will have the same data limitation (when Hz = 0, use = 0)
+
+# quick visualisation
+p <- ggplot(hz) +
+  geom_point(aes(x=Cauduse, y=VO2minBac, colour=cond)) +
+  theme_minimal() +
+  scale_shape_manual(values=c(16, 17)) +
+  scale_color_manual(values=c('red', 'blue')) +
+  labs(x="Caudal Fin Use (%)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition") +
+  facet_wrap(~Fish)
+
+print(p)
+
+# try the same kind of model as above for the caudal fin use
+# need to reduce k (smooth complexity) as we don't have many unique values
+b_caud <- gam(VO2minBac~s(Cauduse, cond, bs="fs", k=5) + s(Fish, bs="re"),
+              data=hz, method="REML")
+
+# model check
+summary(b_caud)
+# less deviance explained than before 
+plot(b_caud)
+# do we believe that O2 is n-shaped in caudal hz? Unlikely
+
+
+preddat <- expand.grid(Cauduse = seq(0, 45, by=1),
+                       cond  = c("T", "L"),
+                       Fish  = unique(hz$Fish))
+
+preddat$VO2minBac <- predict(b_caud, preddat, type="response")
+
+
+p <- ggplot(hz) +
+  geom_line(aes(x=Cauduse, y=VO2minBac, colour=cond, group=cond), data=preddat) +
+  geom_text(aes(x=Cauduse, y=VO2minBac, colour=cond, label=speedcode)) +
+  # scale_colour_brewer(type="qual") +
+  theme_minimal() +
+  labs(x="Caudal Hz", colour="Condition") +
+  scale_shape_manual(values=c(16, 17)) +
+  scale_color_manual(values=c('red', 'blue')) +
+  labs(x="Caudal Fin Use (%)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition") +
+  facet_wrap(~Fish, nrow=2)
+
+print(p)
+
+## and CV of pectoral fin beat frequency (following Roche et al. 2014)
+# quick visualisation
+p <- ggplot(hz) +
+  geom_point(aes(x=CV.Pec, y=VO2minBac, colour=cond)) +
+  theme_minimal() +
+  scale_shape_manual(values=c(16, 17)) +
+  scale_color_manual(values=c('red', 'blue')) +
+  labs(x="CV of Pectoral Fin Beat Frequency", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition") +
+  facet_wrap(~Fish)
+
+print(p)
+
+# try the same kind of model as above for the caudal fin use
+# need to reduce k (smooth complexity) as we don't have many unique values
+b_cvpec <- gam(VO2minBac~s(CV.Pec, cond, bs="fs", k=5) + s(Fish, bs="re"),
+              data=hz, method="REML")
+
+# model check
+summary(b_cvpec)
+# less deviance explained than before 
+plot(b_cvpec)
+# do we believe that O2 is n-shaped in caudal hz? Unlikely
+
+
+preddat <- expand.grid(CV.Pec = seq(0, 0.75, by=0.1),
+                       cond  = c("T", "L"),
+                       Fish  = unique(hz$Fish))
+
+preddat$VO2minBac <- predict(b_cvpec, preddat, type="response")
+
+
+p <- ggplot(hz) +
+  geom_line(aes(x=CV.Pec, y=VO2minBac, colour=cond, group=cond), data=preddat) +
+  geom_text(aes(x=CV.Pec, y=VO2minBac, colour=cond, label=speedcode)) +
+  # scale_colour_brewer(type="qual") +
+  theme_minimal() +
+  # scale_shape_manual(values=c(16, 17)) +
+  scale_color_manual(values=c('blue', 'red')) +
+  labs(x="CV of Pectoral Fin Beat Frequency", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition") +
+  facet_wrap(~Fish, nrow=2)
+
+print(p)
+
+# plot all together by integrating out fish random effect
+preddat <- expand.grid(CV.Pec = seq(0, 0.75, by=0.1),
+                       cond  = c("T", "L"), Fish="F5")
+pr <- predict(b_cvpec, preddat, type="response", se=TRUE, exclude="s(Fish)")
+preddat$VO2minBac <- pr$fit
+preddat$upper <- pr$fit + 2*pr$se.fit
+preddat$lower <- pr$fit - 2*pr$se.fit
+
+# what does that look like?
+p <- ggplot(hz) +
+  geom_line(aes(x=CV.Pec, y=VO2minBac, colour=cond, group=cond), data=preddat) +
+  geom_line(aes(x=CV.Pec, y=upper, colour=cond, group=cond), linetype=2, data=preddat) +
+  geom_line(aes(x=CV.Pec, y=lower, colour=cond, group=cond), linetype=2, data=preddat) +
+  geom_text(aes(x=CV.Pec, y=VO2minBac, colour=cond, label=speedcode)) +
+  # scale_colour_brewer(type="qual") +
+  # scale_shape_manual(values=c(16, 17))+
+  scale_color_manual(values=c('blue', 'red'))+
+  theme_minimal() +
+  labs(x="CV of Pectoral Fin Beat Frequency", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition")
+
+print(p)
+
+```
+
+To investigate the position of fish in the tank, we compared the centroid locations of the snout of each fish through the 180s sample period, and standard deviation from that centroid position, in different speed*flow combinations. This investigation along with the heatmaps (Figure 5) illustrate the overall positioning of individuals within the tank; however our interpretation is limited due to the number of response parameters compared to the number of animals tested and the factors to be considered. 
+
+```{r}
+
+
+``` 
