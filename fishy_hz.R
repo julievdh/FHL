@@ -129,8 +129,8 @@ p <- ggplot(hz) +
   geom_text(aes(x=CaudHz, y=VO2minBac, colour=cond, label=speedcode)) +
   scale_colour_brewer(type="qual") +
   theme_minimal() +
-  labs(x="Pectoral Hz", colour="Condition") +
-  facet_wrap(~Fish, nrow=2)
+  labs(x="Caudal Hz", colour="Condition")# +
+#  facet_wrap(~Fish, nrow=2)
 
 print(p)
 
