@@ -19,13 +19,13 @@ z = data(:,6);
 
 % plot x, y, z and frame
 figure(1)
-subplot(311)
+subplot(311), title('x')
 hold on
 plot(frame,x,'r')
-subplot(312)
+subplot(312), title('y')
 hold on
 plot(frame,y,'r')
-subplot(313)
+subplot(313), title('z')
 hold on
 plot(frame,z,'r')
 
@@ -45,15 +45,15 @@ grid on
 
 % separate histograms in 3 dimensions
 figure(5)
-subplot(311)
+subplot(311), title('x')
 hold on
 hist(x)
 xlim([0 0.26])
-subplot(312)
+subplot(312), title('y')
 hold on
 hist(y)
 xlim([0 0.11])
-subplot(313)
+subplot(313), title('z')
 hold on
 hist(z)
 xlim([0 0.09])
