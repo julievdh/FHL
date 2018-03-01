@@ -39,13 +39,16 @@ library(nlme)
 # - random says what the random effects are (random intercept for a)
 modr <- nlme(VO2minBac~a+b*Speed^c,
              fixed = a+b+c~Flow,
-             random = a+b+c~1|Fish,
+             random = a~1|Fish,
              start=c(168.7038472,0, 6,0, 2.2036793, 0),
              data=fish)
 
 # Check model summary
 summary(modr)
+```
 
+
+```{r}
 # plot observed vs predicted
 plot(fish$VO2minBac, predict(modr),
      asp=1,
@@ -59,14 +62,18 @@ plot(aggregate(fish$VO2minBac, list(fish$Speed, fish$Flow, fish$Fish), mean)$x,
      asp=1,
      xlab="Observed VO2minBac", ylab="Predicted VO2minBac")
 abline(a=0,b=1, col="blue", lty=2)
+```
 
+```{r}
 ## 3. Model checking
 
 # per fish residuals - this looks okay, no major variations
 bp_dat <- data.frame(resids = residuals(modr),
                      Fish   = fish$Fish)
 boxplot(resids~Fish, bp_dat, varwidth=TRUE, ylim=c(-100, 200))
+```
 
+```{r}
 # residuals by Speed
 # - these look okay too, maybe some increase in variance at higher speeds
 dat <- data.frame(residuals = residuals(modr),
@@ -84,8 +91,10 @@ qqnorm(modr, abline=c(0,1))
 
 # q-q of the random effects - they should be normal
 qqnorm(modr, ~ranef(.))
+```
 
 
+```{r}
 ## 4. prediction plots
 library(ggplot2)
 
@@ -107,9 +116,9 @@ p <- ggplot(plotty, aes(x=Speed, y=VO2minBac, group=Flow, colour=Flow)) +
   scale_shape_manual(values=c(17, 16))+
   labs(x="Speed (BL/s)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition")
 print(p)
+```
 
-
-
+```{r}
 # plot predictions averaged over Fish
 # make prediction grid, then predict
 preddat <- expand.grid(Speed = seq(0.5, 4.5, by=0.1),
@@ -125,8 +134,11 @@ p <- ggplot(plotty, aes(x=Speed, y=VO2minBac, group=Flow, colour=Flow)) +
   scale_shape_manual(values=c(17, 16))+
   labs(x="Speed (BL/s)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition")
 print(p)
+```
 
-## also supplemental figure of true speed
+```{r}
+# Supplemental figure of true speed instead of Body lengths per second to compare with 
+# PIV measurements that are in real instead of relative units
 file <- system.file("VO2", "VO2.xlsx", package = "xlsx")
 data <- read_excel("VO2.xlsx", 7)  # includes body lengths of fish
 
@@ -140,16 +152,16 @@ p <- ggplot(data, aes(x=Truespeed, y=MeanVO2minBac, group=Cond, colour=Cond)) +
   scale_shape_manual(values=c(17, 16))+
   labs(x="Speed (m/s)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition")
 
-png("FigureS5.png", width = 6, height = 4, units = 'in', res = 300)
+# png("FigureS5.png", width = 6, height = 4, units = 'in', res = 300)
 print(p) # Make plot
-dev.off()
-
+# dev.off()
 
 ```
 To assess how MO2 changed with fin beat frequency, we fitted a generalized additive model (Wood, 2017) to the MO2, using pectoral or caudal fin beat (Hz) as separate explanatory variables. We used factor-smooth interactions (Baayen et al., 2016) to fit two levels of a smoothed function of measured beat frequency, one for each flow condition. Such terms fit the base level of the factor as a smooth, then model deviations from that smooth for the other level, thus information is shared between the models while allowing for a flexible relationship that makes no assumptions about functional form. Fish ID was included as a random effect. Models were fitted by restricted maximum likelihood. 
 
 
 ```{r}
+## Load in and take first look at data 
 hz <- read.csv("FishVO2Hz.csv")
 
 # make codes for the speeds
@@ -170,9 +182,10 @@ p <- ggplot(hz) +
   labs(x="Pectoral Fin Beat Frequency (Hz)", y = expression("Oxygen Consumption Rate, MO"[2]* " ("*mg.kg^{-1}*.h^{-1}*")"), colour="Condition")+
   facet_wrap(~Fish)
 print(p)
+```
 
-
-# Fit a GAM
+```{r}
+## Fit a GAM
 library(mgcv)
 # this is fitting a model that says:
 # O2 varies as a function of pectoral hz, but we should estimate a different
@@ -188,8 +201,10 @@ gam.check(b_pec)
 summary(b_pec)
 # v. high % deviance explained, will continue to include the fish random effect 
 # to explicitly include between-fish variability
+```
 
 
+```{r}
 # now to make predictions, make a grid of values with all the pectoral hz we need
 # plus values for the condition and fish
 preddat <- expand.grid(PecHz = seq(0.5, 3.5, by=0.1),
@@ -217,8 +232,10 @@ p <- ggplot(hz) +
   facet_wrap(~Fish, nrow=2)
 
 print(p)
+```
 
-# ignore fish and predict integrating out the fish random effect
+```{r}
+# ignore fish and predict while integrating out the fish random effect
 preddat <- expand.grid(PecHz = seq(0.5, 3.5, by=0.1),
                        cond  = c("T", "L"), Fish="F5")
 pr <- predict(b_pec, preddat, type="response", se=TRUE, exclude="s(Fish)")
@@ -255,7 +272,9 @@ p <- ggplot(hz) +
   facet_wrap(~Fish)
 
 print(p)
+```
 
+```{r}
 # try the same kind of model as above for the caudal fin frequency
 # need to reduce k (smooth complexity) as we don't have many unique values
 b_caud <- gam(VO2minBac~s(CaudHz, cond, bs="fs", k=5) + s(Fish, bs="re"),
@@ -263,9 +282,12 @@ b_caud <- gam(VO2minBac~s(CaudHz, cond, bs="fs", k=5) + s(Fish, bs="re"),
 
 # model check
 summary(b_caud)
-# less deviance explained than before 
+```
+
+```{r}
+# Much less deviance explained than before 
 plot(b_caud)
-# do we believe that O2 is n-shaped in caudal hz? Unlikely
+# Do we believe that O2 is n-shaped in caudal hz? Unlikely. This is not a suitable model.
 
 
 preddat <- expand.grid(CaudHz = seq(0, 5, by=0.1),
@@ -287,7 +309,9 @@ p <- ggplot(hz) +
   facet_wrap(~Fish, nrow=2)
 
 print(p)
+```
 
+```{r}
 ## what about caudal use? Will have the same data limitation (when Hz = 0, use = 0)
 
 # quick visualisation
@@ -300,7 +324,9 @@ p <- ggplot(hz) +
   facet_wrap(~Fish)
 
 print(p)
+```
 
+```{r}
 # try the same kind of model as above for the caudal fin use
 # need to reduce k (smooth complexity) as we don't have many unique values
 b_caud <- gam(VO2minBac~s(Cauduse, cond, bs="fs", k=5) + s(Fish, bs="re"),
@@ -308,10 +334,11 @@ b_caud <- gam(VO2minBac~s(Cauduse, cond, bs="fs", k=5) + s(Fish, bs="re"),
 
 # model check
 summary(b_caud)
-# less deviance explained than before 
-plot(b_caud)
-# do we believe that O2 is n-shaped in caudal hz? Unlikely
+```
 
+```{r}
+# Again, less deviance explained than before 
+plot(b_caud)
 
 preddat <- expand.grid(Cauduse = seq(0, 45, by=1),
                        cond  = c("T", "L"),
@@ -332,8 +359,10 @@ p <- ggplot(hz) +
   facet_wrap(~Fish, nrow=2)
 
 print(p)
+```
 
-## and CV of pectoral fin beat frequency (following Roche et al. 2014)
+```{r}
+## and, again for CV of pectoral fin beat frequency (following Roche et al. 2014)
 # quick visualisation
 p <- ggplot(hz) +
   geom_point(aes(x=CV.Pec, y=VO2minBac, colour=cond)) +
@@ -344,19 +373,21 @@ p <- ggplot(hz) +
   facet_wrap(~Fish)
 
 print(p)
+```
 
-# try the same kind of model as above for the caudal fin use
+```{r}
+# Again, fitting the model 
 # need to reduce k (smooth complexity) as we don't have many unique values
 b_cvpec <- gam(VO2minBac~s(CV.Pec, cond, bs="fs", k=5) + s(Fish, bs="re"),
               data=hz, method="REML")
 
 # model check
 summary(b_cvpec)
-# less deviance explained than before 
 plot(b_cvpec)
-# do we believe that O2 is n-shaped in caudal hz? Unlikely
+```
 
-
+```{r}
+# generate predictive grid
 preddat <- expand.grid(CV.Pec = seq(0, 0.75, by=0.1),
                        cond  = c("T", "L"),
                        Fish  = unique(hz$Fish))
@@ -375,7 +406,9 @@ p <- ggplot(hz) +
   facet_wrap(~Fish, nrow=2)
 
 print(p)
+```
 
+```{r}
 # plot all together by integrating out fish random effect
 preddat <- expand.grid(CV.Pec = seq(0, 0.75, by=0.1),
                        cond  = c("T", "L"), Fish="F5")
@@ -454,7 +487,9 @@ p <- ggplot(summary_pos) +
   facet_wrap(~speed) +
   theme_minimal()
 print(p)
+```
 
+```{r}
 library(reshape2)
 summary_pos_melt <- melt(summary_pos, id=c("Fish", "cond", "speed"))
 

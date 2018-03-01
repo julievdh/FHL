@@ -135,6 +135,61 @@ p <- ggplot(hz) +
 print(p)
 
 
+per <- read.csv("FHL_periodicity.csv")
+per$condition <- as.factor(per$condition)
+ 
+# try the same kind of model as above for the caudal?
+# need to reduce k (smooth complexity) as we don't have many unique values
+b_pery <- gam(yfreq~s(speed, condition, bs="fs", k=5) + s(fish, bs="re"),
+              data=per, method="REML")
+
+# model check
+summary(b_caud)
+# less deviance explained than before and less wiggly effects?
+plot(b_caud)
+# do we believe that O2 is n-shaped in caudal hz?
+
+
+preddat <- expand.grid(CaudHz = seq(0, 5, by=0.1),
+                       cond  = c("T", "L"),
+                       Fish  = unique(hz$Fish))
+
+preddat$VO2minBac <- predict(b_caud, preddat, type="response")
+
+
+p <- ggplot(hz) +
+  geom_line(aes(x=CaudHz, y=VO2minBac, colour=cond, group=cond), data=preddat) +
+  geom_text(aes(x=CaudHz, y=VO2minBac, colour=cond, label=speedcode)) +
+  scale_colour_brewer(type="qual") +
+  theme_minimal() +
+  labs(x="Pectoral Hz", colour="Condition") +
+  facet_wrap(~Fish, nrow=2)
+
+print(p)
+
+
+per <- read.csv("FHL_periodicity.csv")
+# add condition code 
+per$Flow <- "L"
+per$Flow[per$condition == 1] <- "L"
+per$Flow[per$condition == 0] <- "T"
+per$Flow <- as.factor(per$Flow)
+
+
+p <- ggplot(per) +
+  geom_point(aes(x=speed, y=zfreq,colour=condition), data=per) +
+  scale_colour_manual(values=c("red", "blue")) +
+  scale_shape_manual(values=c(17, 16))+
+  theme_minimal() +
+  labs(y="z-frequency", x = "Speed BL/s", colour="Condition") 
+
+print(p)
+
+modr <- nlme(zfreq~a+b*speed,
+             fixed = a+b~Flow,
+             random = a~1|fish,
+             start=c(0, 0.5),
+             data=per)
 
 
 
