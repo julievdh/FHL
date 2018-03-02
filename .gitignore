@@ -33,7 +33,6 @@ vignettes/*.pdf
 *.knit.md
 
 # also data files 
-*.xlsx
 *.mat
 
 # large figure files
